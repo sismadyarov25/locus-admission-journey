@@ -56,9 +56,8 @@ function MatchRing({ percent }) {
 }
 
 /* ── University Card ── */
-function UniversityCard({ uni }) {
+function UniversityCard({ uni, onSelect }) {
   const [compared, setCompared] = useState(false);
-  const [selected, setSelected] = useState(false);
 
   return (
     <article className="group flex flex-col rounded-2xl bg-white shadow-md shadow-indigo-50/50 ring-1 ring-slate-100 transition-all duration-300 hover:shadow-xl hover:shadow-indigo-100/60 hover:-translate-y-1">
@@ -89,7 +88,7 @@ function UniversityCard({ uni }) {
         <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-indigo-600">
           <SparkleIcon /> Почему подходит
         </div>
-        <p className="text-sm leading-relaxed text-slate-600">{uni.reason}</p>
+        <p className="text-sm leading-relaxed text-slate-600">{uni.why_it_fits}</p>
       </div>
 
       {/* Actions */}
@@ -109,20 +108,10 @@ function UniversityCard({ uni }) {
 
         <button
           type="button"
-          onClick={() => setSelected(!selected)}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-bold transition-all duration-150 cursor-pointer ${
-            selected
-              ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200/50'
-              : 'bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-md shadow-indigo-200/50 hover:shadow-lg hover:brightness-110'
-          }`}
+          onClick={onSelect}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-bold transition-all duration-150 cursor-pointer bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-md shadow-indigo-200/50 hover:shadow-lg hover:brightness-110"
         >
-          {selected ? (
-            <>
-              <CheckIcon /> В маршруте
-            </>
-          ) : (
-            'Выбрать'
-          )}
+          Выбрать
         </button>
       </div>
     </article>
@@ -130,7 +119,7 @@ function UniversityCard({ uni }) {
 }
 
 /* ── Main Component ── */
-export default function ResultsDashboard({ data, onBack }) {
+export default function ResultsDashboard({ data, onBack, onSelectUniversity }) {
   const { goal, strengths, constraints, universities } = data;
 
   return (
@@ -210,7 +199,11 @@ export default function ResultsDashboard({ data, onBack }) {
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {universities.map((uni) => (
-              <UniversityCard key={uni.id} uni={uni} />
+              <UniversityCard
+                key={uni.id}
+                uni={uni}
+                onSelect={() => onSelectUniversity(uni)}
+              />
             ))}
           </div>
         </section>

@@ -44,7 +44,7 @@ class UniversityRecommendation(BaseModel):
     country: str
     tags: List[str]
     matchPercent: int
-    reason: str
+    why_it_fits: str
 
 
 class RecommendationsResponse(BaseModel):
@@ -68,7 +68,7 @@ MOCK_RESPONSE = RecommendationsResponse(
             country="🇮🇹 Италия",
             tags=["Стипендия", "Английский язык", "Top-200"],
             matchPercent=94,
-            reason=(
+            why_it_fits=(
                 "Программа полностью на английском, есть стипендия за заслуги "
                 "до 100% от стоимости. Стоимость жизни в Риме ниже, чем в "
                 "большинстве столиц ЕС, что укладывается в бюджет."
@@ -81,7 +81,7 @@ MOCK_RESPONSE = RecommendationsResponse(
             country="🇨🇿 Чехия",
             tags=["Бесплатно (чешский)", "Английский трек", "Стажировки"],
             matchPercent=88,
-            reason=(
+            why_it_fits=(
                 "Бесплатное обучение на чешском языке, англоязычный трек "
                 "~3 800 € / год. Сильная IT-экосистема Праги даёт доступ к "
                 "стажировкам в международных компаниях."
@@ -94,7 +94,7 @@ MOCK_RESPONSE = RecommendationsResponse(
             country="🇮🇹 Италия",
             tags=["Стипендия DSU", "Английский язык", "Top-150"],
             matchPercent=85,
-            reason=(
+            why_it_fits=(
                 "Один из лучших технических вузов Европы с программой полностью "
                 "на английском. Стипендия DSU покрывает проживание и питание "
                 "при подтверждении дохода."
@@ -107,13 +107,14 @@ MOCK_RESPONSE = RecommendationsResponse(
 # ── OpenAI Integration ───────────────────────────────────────────────────────
 
 SYSTEM_PROMPT = (
-    "Ты образовательный консультант. Верни JSON с 3 университетами. "
-    "Для каждого вуза обязательно напиши человеческим языком, почему "
-    "этот вариант подходит, учитывая бюджет и интересы."
+    "Ты образовательный консультант. Твоя задача — вернуть JSON с ровно 3 университетами. "
+    "Для каждого вуза обязательно напиши человеческим языком в поле 'why_it_fits', "
+    "почему этот вариант подходит, учитывая бюджет и интересы пользователя. "
+    "Ответ должен быть строго в формате JSON, без markdown-оберток."
 )
 
 RESPONSE_SCHEMA = """
-Верни ответ строго в формате JSON (без markdown-обёртки):
+Ожидаемый JSON формат:
 {
   "goal": "краткая цель (например: Бакалавриат в Европе)",
   "strengths": ["сильная сторона 1", "сильная сторона 2"],
@@ -126,7 +127,7 @@ RESPONSE_SCHEMA = """
       "country": "🏳 Страна",
       "tags": ["Тег1", "Тег2"],
       "matchPercent": 90,
-      "reason": "Подробное объяснение почему подходит"
+      "why_it_fits": "Подробное объяснение почему подходит"
     }
   ]
 }
@@ -148,6 +149,7 @@ def _build_user_message(profile: UserProfile) -> str:
 
 async def _get_ai_recommendations(profile: UserProfile) -> RecommendationsResponse:
     """Call OpenAI API; falls back to mock data if key is missing or call fails."""
+    # Используем os.getenv, load_dotenv() уже вызван вверху файла
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
 
     if not api_key:
@@ -161,6 +163,7 @@ async def _get_ai_recommendations(profile: UserProfile) -> RecommendationsRespon
         completion = await client.chat.completions.create(
             model="gpt-4o-mini",
             temperature=0.7,
+            response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": _build_user_message(profile)},
@@ -168,12 +171,6 @@ async def _get_ai_recommendations(profile: UserProfile) -> RecommendationsRespon
         )
 
         raw = completion.choices[0].message.content.strip()
-        # Strip markdown code fences if present
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1]
-        if raw.endswith("```"):
-            raw = raw.rsplit("```", 1)[0]
-
         data = json.loads(raw)
         return RecommendationsResponse(**data)
 
