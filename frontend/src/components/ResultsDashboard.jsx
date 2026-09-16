@@ -1,45 +1,5 @@
 import { useState } from 'react';
 
-/* ── Mock Data ── */
-const DIAGNOSIS = {
-  goal: 'Бакалавриат в Европе',
-  strengths: ['Высокий GPA (4.8/5.0)', 'IELTS 7.0', 'Опыт олимпиад'],
-  constraints: ['Бюджет: до 40 000 € / год', 'Без немецкого языка'],
-};
-
-const UNIVERSITIES = [
-  {
-    id: 1,
-    name: 'Sapienza University of Rome',
-    program: 'Computer Science and AI',
-    country: '🇮🇹 Италия',
-    tags: ['Стипендия', 'Английский язык', 'Top-200'],
-    matchPercent: 94,
-    reason:
-      'Программа полностью на английском, есть стипендия за заслуги до 100% от стоимости. Стоимость жизни в Риме ниже, чем в большинстве столиц ЕС, что укладывается в бюджет.',
-  },
-  {
-    id: 2,
-    name: 'Czech Technical University',
-    program: 'Software Engineering',
-    country: '🇨🇿 Чехия',
-    tags: ['Бесплатно (чешский)', 'Английский трек', 'Стажировки'],
-    matchPercent: 88,
-    reason:
-      'Бесплатное обучение на чешском языке, англоязычный трек ~3 800 € / год. Сильная IT-экосистема Праги даёт доступ к стажировкам в международных компаниях.',
-  },
-  {
-    id: 3,
-    name: 'Politecnico di Milano',
-    program: 'Engineering of Computing Systems',
-    country: '🇮🇹 Италия',
-    tags: ['Стипендия DSU', 'Английский язык', 'Top-150'],
-    matchPercent: 85,
-    reason:
-      'Один из лучших технических вузов Европы с программой полностью на английском. Стипендия DSU покрывает проживание и питание при подтверждении дохода.',
-  },
-];
-
 /* ── Icons ── */
 const ArrowLeftIcon = () => (
   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -170,7 +130,9 @@ function UniversityCard({ uni }) {
 }
 
 /* ── Main Component ── */
-export default function ResultsDashboard({ onBack }) {
+export default function ResultsDashboard({ data, onBack }) {
+  const { goal, strengths, constraints, universities } = data;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50">
       {/* ── Top Bar ── */}
@@ -201,7 +163,7 @@ export default function ResultsDashboard({ onBack }) {
               {/* Goal */}
               <div className="space-y-1.5">
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Цель</p>
-                <p className="text-lg font-bold text-slate-800">{DIAGNOSIS.goal}</p>
+                <p className="text-lg font-bold text-slate-800">{goal}</p>
               </div>
 
               {/* Strengths */}
@@ -210,7 +172,7 @@ export default function ResultsDashboard({ onBack }) {
                   Сильные стороны
                 </p>
                 <ul className="space-y-1">
-                  {DIAGNOSIS.strengths.map((s) => (
+                  {strengths.map((s) => (
                     <li key={s} className="flex items-start gap-2 text-sm text-slate-600">
                       <span className="mt-0.5 text-emerald-500">✓</span> {s}
                     </li>
@@ -224,7 +186,7 @@ export default function ResultsDashboard({ onBack }) {
                   Ограничения
                 </p>
                 <ul className="space-y-1">
-                  {DIAGNOSIS.constraints.map((c) => (
+                  {constraints.map((c) => (
                     <li key={c} className="flex items-start gap-2 text-sm text-slate-600">
                       <span className="mt-0.5 text-amber-500">⚠</span> {c}
                     </li>
@@ -242,12 +204,12 @@ export default function ResultsDashboard({ onBack }) {
               🎯 Рекомендации
             </h2>
             <p className="text-sm text-slate-400">
-              Найдено <span className="font-semibold text-indigo-600">{UNIVERSITIES.length}</span> подходящих программ
+              Найдено <span className="font-semibold text-indigo-600">{universities.length}</span> подходящих программ
             </p>
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {UNIVERSITIES.map((uni) => (
+            {universities.map((uni) => (
               <UniversityCard key={uni.id} uni={uni} />
             ))}
           </div>

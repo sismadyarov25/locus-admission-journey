@@ -28,13 +28,15 @@ const GRADES = [
   'Бакалавр (1–2 курс)', 'Бакалавр (3–4 курс)', 'Выпускник',
 ];
 
-export default function Onboarding({ onSubmit }) {
+export default function Onboarding({ onResults }) {
   const [role, setRole] = useState('applicant');
   const [grade, setGrade] = useState('');
   const [interests, setInterests] = useState([]);
   const [countries, setCountries] = useState([]);
   const [budget, setBudget] = useState(150);
   const [exams, setExams] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const toggleChip = (value, list, setter, max = Infinity) => {
     if (list.includes(value)) {
@@ -48,6 +50,35 @@ export default function Onboarding({ onSubmit }) {
     if (v === 0) return '0 €';
     if (v >= 500) return '500 000+ €';
     return `${v} 000 €`;
+  };
+
+  const handleSubmit = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch('http://localhost:8000/api/recommendations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role,
+          grade,
+          interests,
+          countries,
+          budget,
+          exams,
+        }),
+      });
+
+      if (!res.ok) throw new Error(`Ошибка сервера: ${res.status}`);
+
+      const data = await res.json();
+      onResults(data);
+    } catch (err) {
+      setError(err.message || 'Не удалось получить рекомендации');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -218,17 +249,37 @@ export default function Onboarding({ onSubmit }) {
             </div>
           </fieldset>
 
+          {/* ─ Error Message ─ */}
+          {error && (
+            <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+              ⚠ {error}
+            </div>
+          )}
+
           {/* ─ CTA Button ─ */}
           <button
             type="button"
-            onClick={onSubmit}
-            className="group relative w-full overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-indigo-300/40 transition-all duration-200 hover:shadow-xl hover:shadow-indigo-400/40 hover:brightness-110 active:scale-[0.98] cursor-pointer"
+            onClick={handleSubmit}
+            disabled={isLoading}
+            className="group relative w-full overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-indigo-300/40 transition-all duration-200 hover:shadow-xl hover:shadow-indigo-400/40 hover:brightness-110 active:scale-[0.98] cursor-pointer disabled:opacity-80 disabled:cursor-not-allowed disabled:active:scale-100"
           >
             <span className="relative z-10 inline-flex items-center gap-2">
-              Построить маршрут
-              <svg className="h-5 w-5 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-              </svg>
+              {isLoading ? (
+                <>
+                  <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Генерируем маршрут…
+                </>
+              ) : (
+                <>
+                  Построить маршрут
+                  <svg className="h-5 w-5 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                  </svg>
+                </>
+              )}
             </span>
           </button>
         </div>
