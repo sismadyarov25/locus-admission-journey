@@ -28,7 +28,7 @@ const GRADES = [
   'Бакалавр (1–2 курс)', 'Бакалавр (3–4 курс)', 'Выпускник',
 ];
 
-export default function Onboarding() {
+export default function Onboarding({ onSubmit }) {
   const [role, setRole] = useState('applicant');
   const [grade, setGrade] = useState('');
   const [interests, setInterests] = useState([]);
@@ -221,6 +221,7 @@ export default function Onboarding() {
           {/* ─ CTA Button ─ */}
           <button
             type="button"
+            onClick={onSubmit}
             className="group relative w-full overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-indigo-300/40 transition-all duration-200 hover:shadow-xl hover:shadow-indigo-400/40 hover:brightness-110 active:scale-[0.98] cursor-pointer"
           >
             <span className="relative z-10 inline-flex items-center gap-2">
