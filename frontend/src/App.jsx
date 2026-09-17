@@ -6,10 +6,12 @@ import AdmissionRoadmap from './components/AdmissionRoadmap';
 function App() {
   const [screen, setScreen] = useState('onboarding');
   const [results, setResults] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
   const [selectedUniversity, setSelectedUniversity] = useState(null);
 
-  const handleResults = (data) => {
+  const handleResults = (data, profile) => {
     setResults(data);
+    setUserProfile(profile);
     setScreen('results');
   };
 
@@ -22,6 +24,7 @@ function App() {
     return (
       <AdmissionRoadmap
         university={selectedUniversity}
+        profile={userProfile}
         onBack={() => setScreen('results')}
       />
     );

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 /* ── Icons ── */
 const ArrowLeftIcon = () => (
@@ -53,9 +53,39 @@ const TIMELINE_STEPS = [
   },
 ];
 
-export default function AdmissionRoadmap({ university, onBack }) {
+export default function AdmissionRoadmap({ university, profile, onBack }) {
   const [isNextActionDone, setIsNextActionDone] = useState(false);
+  const [roadmapData, setRoadmapData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const uniName = university?.name || 'выбранный вуз';
+
+  useEffect(() => {
+    const fetchRoadmap = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/roadmap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            profile: profile || { role: 'applicant', grade: '', interests: [], countries: [], budget: 0, exams: [] },
+            universityName: uniName
+          }),
+        });
+
+        if (!res.ok) throw new Error(`Ошибка сервера: ${res.status}`);
+
+        const data = await res.json();
+        setRoadmapData(data);
+      } catch (err) {
+        setError(err.message || 'Не удалось сгенерировать план');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchRoadmap();
+  }, [profile, uniName]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50">
@@ -69,7 +99,7 @@ export default function AdmissionRoadmap({ university, onBack }) {
             <ArrowLeftIcon /> Назад к выбору
           </button>
           <div className="ml-auto flex items-center gap-2 text-sm font-medium text-slate-500">
-            Маршрут построен
+            {isLoading ? 'Генерация...' : 'Маршрут построен'}
           </div>
         </div>
       </header>
@@ -88,67 +118,89 @@ export default function AdmissionRoadmap({ university, onBack }) {
           </p>
         </div>
 
-        {/* ── Next Action Block (Critical First Step) ── */}
-        <section className="relative overflow-hidden rounded-3xl bg-white shadow-xl shadow-indigo-100/50 ring-1 ring-slate-100 sm:p-8 p-6">
-          <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-indigo-50 blur-3xl"></div>
-          
-          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-            <div className="flex-1">
-              <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
-                <LightningIcon /> Фокус на этой неделе
-              </div>
-              <h3 className={`text-xl font-bold transition-all duration-300 ${isNextActionDone ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
-                Зарегистрироваться на языковой экзамен (IELTS/TOEFL)
-              </h3>
-              <p className={`mt-2 text-sm transition-all duration-300 ${isNextActionDone ? 'text-slate-300' : 'text-slate-600'}`}>
-                Выберите доступный центр тестирования, забронируйте дату не позднее чем через 2 месяца и оплатите сбор.
-              </p>
-            </div>
-
-            <button
-              onClick={() => setIsNextActionDone(!isNextActionDone)}
-              className={`group relative flex-shrink-0 flex items-center gap-2 overflow-hidden rounded-2xl px-6 py-3.5 text-sm font-bold transition-all duration-300 cursor-pointer ${
-                isNextActionDone
-                  ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200'
-                  : 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300'
-              }`}
-            >
-              <CheckCircleIcon className={`h-5 w-5 ${isNextActionDone ? 'text-emerald-500' : 'text-indigo-200 group-hover:text-white transition-colors'}`} />
-              {isNextActionDone ? 'Выполнено' : 'Отметить как выполненное'}
-            </button>
+        {error && (
+          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+            ⚠ {error}
           </div>
-        </section>
+        )}
 
-        {/* ── Timeline ── */}
-        <section className="pt-4">
-          <h2 className="mb-8 text-2xl font-bold text-slate-800">
-            План подготовки
-          </h2>
-
-          <div className="relative ml-4 md:ml-6 border-l-2 border-indigo-100 pb-4">
-            <div className="space-y-10">
-              {TIMELINE_STEPS.map((step, idx) => (
-                <div key={step.id} className="relative pl-8 md:pl-10">
-                  {/* Timeline Dot */}
-                  <div className="absolute -left-[9px] top-1.5 h-4 w-4 rounded-full border-2 border-white bg-indigo-500 ring-4 ring-indigo-50"></div>
-                  
-                  {/* Content */}
-                  <div className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100 transition hover:shadow-md hover:ring-indigo-100">
-                    <div className="mb-1 text-xs font-bold tracking-wide text-indigo-500 uppercase">
-                      {step.timeline}
-                    </div>
-                    <h3 className="mb-2 text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                      {idx + 1}. {step.title}
-                    </h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">
-                      {step.description}
-                    </p>
-                  </div>
-                </div>
+        {isLoading ? (
+          /* ── Skeletons ── */
+          <div className="animate-pulse space-y-10">
+            {/* Next Action Skeleton */}
+            <div className="h-48 rounded-3xl bg-slate-200 w-full"></div>
+            
+            <div className="space-y-8 pl-6">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-32 rounded-2xl bg-slate-200 w-full"></div>
               ))}
             </div>
           </div>
-        </section>
+        ) : roadmapData ? (
+          <>
+            {/* ── Next Action Block (Critical First Step) ── */}
+            <section className="relative overflow-hidden rounded-3xl bg-white shadow-xl shadow-indigo-100/50 ring-1 ring-slate-100 sm:p-8 p-6">
+              <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-indigo-50 blur-3xl"></div>
+              
+              <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+                <div className="flex-1">
+                  <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
+                    <LightningIcon /> Фокус на этой неделе
+                  </div>
+                  <h3 className={`text-xl font-bold transition-all duration-300 ${isNextActionDone ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+                    {roadmapData.next_action.title}
+                  </h3>
+                  <p className={`mt-2 text-sm transition-all duration-300 ${isNextActionDone ? 'text-slate-300' : 'text-slate-600'}`}>
+                    {roadmapData.next_action.description}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setIsNextActionDone(!isNextActionDone)}
+                  className={`group relative flex-shrink-0 flex items-center gap-2 overflow-hidden rounded-2xl px-6 py-3.5 text-sm font-bold transition-all duration-300 cursor-pointer ${
+                    isNextActionDone
+                      ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200'
+                      : 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300'
+                  }`}
+                >
+                  <CheckCircleIcon className={`h-5 w-5 ${isNextActionDone ? 'text-emerald-500' : 'text-indigo-200 group-hover:text-white transition-colors'}`} />
+                  {isNextActionDone ? 'Выполнено' : 'Отметить как выполненное'}
+                </button>
+              </div>
+            </section>
+
+            {/* ── Timeline ── */}
+            <section className="pt-4">
+              <h2 className="mb-8 text-2xl font-bold text-slate-800">
+                План подготовки
+              </h2>
+
+              <div className="relative ml-4 md:ml-6 border-l-2 border-indigo-100 pb-4">
+                <div className="space-y-10">
+                  {roadmapData.steps.map((step, idx) => (
+                    <div key={idx} className="relative pl-8 md:pl-10">
+                      {/* Timeline Dot */}
+                      <div className="absolute -left-[9px] top-1.5 h-4 w-4 rounded-full border-2 border-white bg-indigo-500 ring-4 ring-indigo-50"></div>
+                      
+                      {/* Content */}
+                      <div className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100 transition hover:shadow-md hover:ring-indigo-100">
+                        <div className="mb-1 text-xs font-bold tracking-wide text-indigo-500 uppercase">
+                          {step.timeframe}
+                        </div>
+                        <h3 className="mb-2 text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                          {idx + 1}. {step.title}
+                        </h3>
+                        <p className="text-sm text-slate-600 leading-relaxed">
+                          {step.description}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          </>
+        ) : null}
 
       </main>
     </div>

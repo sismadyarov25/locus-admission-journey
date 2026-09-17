@@ -57,23 +57,18 @@ export default function Onboarding({ onResults }) {
     setError(null);
 
     try {
+      const profilePayload = { role, grade, interests, countries, budget, exams };
+
       const res = await fetch('http://localhost:8000/api/recommendations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          role,
-          grade,
-          interests,
-          countries,
-          budget,
-          exams,
-        }),
+        body: JSON.stringify(profilePayload),
       });
 
       if (!res.ok) throw new Error(`Ошибка сервера: ${res.status}`);
 
       const data = await res.json();
-      onResults(data);
+      onResults(data, profilePayload);
     } catch (err) {
       setError(err.message || 'Не удалось получить рекомендации');
     } finally {
