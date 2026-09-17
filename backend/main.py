@@ -62,6 +62,27 @@ class RecommendationsResponse(BaseModel):
     universities: List[UniversityRecommendation]
 
 
+class RoadmapRequest(BaseModel):
+    profile: UserProfile
+    universityName: str
+
+
+class NextAction(BaseModel):
+    title: str
+    description: str
+
+
+class RoadmapStep(BaseModel):
+    timeframe: str
+    title: str
+    description: str
+
+
+class RoadmapResponse(BaseModel):
+    next_action: NextAction
+    steps: List[RoadmapStep]
+
+
 # ── Fallback Mock Data ───────────────────────────────────────────────────────
 
 MOCK_RESPONSE = RecommendationsResponse(
@@ -111,6 +132,39 @@ MOCK_RESPONSE = RecommendationsResponse(
     ],
 )
 
+MOCK_ROADMAP_RESPONSE = RoadmapResponse(
+    next_action=NextAction(
+        title="Зарегистрироваться на IELTS/TOEFL",
+        description="Выберите дату сдачи не позднее чем через 2 месяца и начните интенсивную подготовку к формату экзамена."
+    ),
+    steps=[
+        RoadmapStep(
+            timeframe="Месяц 1-2",
+            title="Подготовка к языковому экзамену",
+            description="Интенсивные занятия английским (цель B2-C1). Параллельно соберите информацию о требованиях к GPA."
+        ),
+        RoadmapStep(
+            timeframe="Месяц 2-3",
+            title="Сбор академических документов",
+            description="Сделайте выписку оценок, переведите на английский и заверьте. Подготовьте рекомендательные письма от учителей."
+        ),
+        RoadmapStep(
+            timeframe="Месяц 3-4",
+            title="Написание мотивационного эссе",
+            description="Сформулируйте свои цели и покажите, почему именно вы подходите этой программе. Отдайте на proofreading."
+        ),
+        RoadmapStep(
+            timeframe="Месяц 4-5",
+            title="Подача заявки (Application)",
+            description="Заполните анкету на портале вуза, загрузите все документы и оплатите application fee."
+        ),
+        RoadmapStep(
+            timeframe="После оффера",
+            title="Оформление визы",
+            description="Получите приглашение от вуза, соберите финансовые гарантии и подайте документы в визовый центр."
+        )
+    ]
+)
 
 # ── OpenAI Integration ───────────────────────────────────────────────────────
 
@@ -189,6 +243,81 @@ async def _get_ai_recommendations(profile: UserProfile) -> RecommendationsRespon
         return MOCK_RESPONSE
 
 
+ROADMAP_SYSTEM_PROMPT = (
+    "Ты консультант по поступлению. На основе профиля ученика (класс/возраст, направление) "
+    "и выбранного вуза, сгенерируй детальный пошаговый план поступления. Верни JSON "
+    "с одним самым приоритетным ближайшим шагом (next_action) и списком из 4-5 основных "
+    "этапов подготовки (steps). Учитывай возраст: если это 9 класс, фокус на оценки и язык; "
+    "если 11 класс или последний курс колледжа — жесткий фокус на дедлайны подачи и сбор документов. "
+    "Ответ должен быть строго в формате JSON, без markdown-оберток."
+)
+
+ROADMAP_RESPONSE_SCHEMA = """
+Ожидаемый JSON формат:
+{
+  "next_action": {
+    "title": "Краткое название действия",
+    "description": "Понятное объяснение, что нужно сделать прямо сейчас"
+  },
+  "steps": [
+    {
+      "timeframe": "Например: Сентябрь-Октябрь или Месяц 1-2",
+      "title": "Название этапа",
+      "description": "Детали подготовки"
+    }
+  ]
+}
+"""
+
+
+def _build_roadmap_message(request: RoadmapRequest) -> str:
+    profile = request.profile
+    return (
+        f"Профиль абитуриента:\n"
+        f"- Роль: {'Абитуриент' if profile.role == 'applicant' else 'Родитель'}\n"
+        f"- Класс/курс: {profile.grade}\n"
+        f"- Интересы: {', '.join(profile.interests) if profile.interests else 'не указаны'}\n"
+        f"- Годовой бюджет: {profile.budget} 000 €\n"
+        f"- Языковые экзамены: {', '.join(profile.exams) if profile.exams else 'нет'}\n"
+        f"\nВыбранный университет: {request.universityName}\n"
+        f"\n{ROADMAP_RESPONSE_SCHEMA}"
+    )
+
+
+async def _get_ai_roadmap(request: RoadmapRequest) -> RoadmapResponse:
+    """Call OpenAI API for roadmap generation; falls back to mock data on error."""
+    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+
+    if not api_key:
+        print("⚠️  OPENAI_API_KEY not set — returning mock roadmap data")
+        return MOCK_ROADMAP_RESPONSE
+
+    print(f"🤖 Calling OpenAI (Roadmap) for {request.universityName}...")
+
+    try:
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(api_key=api_key)
+        completion = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            temperature=0.7,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": ROADMAP_SYSTEM_PROMPT},
+                {"role": "user", "content": _build_roadmap_message(request)},
+            ],
+        )
+
+        raw = completion.choices[0].message.content.strip()
+        print(f"✅ OpenAI roadmap response received ({len(raw)} chars)")
+        data = json.loads(raw)
+        return RoadmapResponse(**data)
+
+    except Exception as e:
+        print(f"⚠️  OpenAI roadmap call failed: {e} — returning mock data")
+        return MOCK_ROADMAP_RESPONSE
+
+
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 
@@ -203,4 +332,13 @@ async def get_recommendations(profile: UserProfile):
     print(f"📩 POST /api/recommendations — role={profile.role}, budget={profile.budget}")
     result = await _get_ai_recommendations(profile)
     print(f"📤 Returning {len(result.universities)} universities")
+    return result
+
+
+@app.post("/api/roadmap", response_model=RoadmapResponse)
+async def get_roadmap(request: RoadmapRequest):
+    """Generate personalized roadmap based on user profile and selected university."""
+    print(f"📩 POST /api/roadmap — university={request.universityName}")
+    result = await _get_ai_roadmap(request)
+    print(f"📤 Returning roadmap with {len(result.steps)} steps")
     return result
