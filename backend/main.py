@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from typing import List, Optional
 
 from dotenv import load_dotenv
@@ -11,7 +12,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-load_dotenv()
+# Явно указываем путь к .env относительно этого файла,
+# чтобы load_dotenv работал из любой рабочей директории
+_ENV_PATH = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=_ENV_PATH)
+
+# Отладочный вывод при старте сервера
+_key = os.getenv("OPENAI_API_KEY", "")
+print(f"🔑 OPENAI_API_KEY loaded: {'YES (' + _key[:8] + '...)' if _key else 'NO — will use mock data'}")
 
 # ── App ──────────────────────────────────────────────────────────────────────
 
@@ -149,12 +157,13 @@ def _build_user_message(profile: UserProfile) -> str:
 
 async def _get_ai_recommendations(profile: UserProfile) -> RecommendationsResponse:
     """Call OpenAI API; falls back to mock data if key is missing or call fails."""
-    # Используем os.getenv, load_dotenv() уже вызван вверху файла
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
 
     if not api_key:
         print("⚠️  OPENAI_API_KEY not set — returning mock data")
         return MOCK_RESPONSE
+
+    print(f"🤖 Calling OpenAI with key {api_key[:8]}... for profile: grade={profile.grade}, interests={profile.interests}")
 
     try:
         from openai import AsyncOpenAI
@@ -171,6 +180,7 @@ async def _get_ai_recommendations(profile: UserProfile) -> RecommendationsRespon
         )
 
         raw = completion.choices[0].message.content.strip()
+        print(f"✅ OpenAI response received ({len(raw)} chars)")
         data = json.loads(raw)
         return RecommendationsResponse(**data)
 
@@ -190,4 +200,7 @@ async def root():
 @app.post("/api/recommendations", response_model=RecommendationsResponse)
 async def get_recommendations(profile: UserProfile):
     """Generate personalized university recommendations based on user profile."""
-    return await _get_ai_recommendations(profile)
+    print(f"📩 POST /api/recommendations — role={profile.role}, budget={profile.budget}")
+    result = await _get_ai_recommendations(profile)
+    print(f"📤 Returning {len(result.universities)} universities")
+    return result
